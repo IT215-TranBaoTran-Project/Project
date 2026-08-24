@@ -21,7 +21,7 @@ def add_member(
     db: Session = Depends(get_db),
     current_user: Users = Depends(get_current_user)
 ):
-    # Kiểm tra campaign có tồn tại không
+
     campaign = db.query(Campaign).filter(
         Campaign.id == campaign_id
     ).first()
@@ -59,7 +59,6 @@ def add_member(
             detail="Người dùng đã là thành viên của chiến dịch"
         )
 
-    # Tạo member mới
     new_member = CampaignMember(
         campaign_id=campaign_id,
         users_id=member.users_id,
