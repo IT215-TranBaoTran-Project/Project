@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime,timezone
 
 from sqlalchemy import Column,Integer,String,Boolean,DateTime
 from sqlalchemy.orm import relationship
@@ -18,5 +18,12 @@ class User(Base):
     created_at = Column(DateTime,default=datetime.now(timezone.utc))
     updated_at = Column(DateTime,default=datetime.now(timezone.utc),onupdate=datetime.now(timezone.utc))
 
-    owned_campaigns = relationship("Campaign",back_populates="owner")
-    campaign_memberships = relationship("CampaignMember",back_populates="user")
+    owned_campaigns = relationship(
+        "Campaign",
+        back_populates="owner"
+    )
+
+    campaign_memberships = relationship(
+        "CampaignMember",
+        back_populates="user"
+    )

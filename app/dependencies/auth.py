@@ -1,11 +1,13 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends,HTTPException
 from fastapi.security import OAuth2PasswordBearer
+
+from jose import jwt,JWTError
+
 from sqlalchemy.orm import Session
-from jose import jwt, JWTError
 
 from app.db.database import get_db
 from app.models.users import User
-from app.core.security import SECRET_KEY, ALGORITHM
+from app.core.security import SECRET_KEY,ALGORITHM
 
 
 oauth2_scheme = OAuth2PasswordBearer(
@@ -17,6 +19,7 @@ def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
+
     try:
         payload = jwt.decode(
             token,
@@ -29,10 +32,10 @@ def get_current_user(
         if user_id is None:
             raise HTTPException(
                 status_code=401,
-                detail="Token không hợp lệ hoặc đã hết hạn"
+                detail="Token không hợp lệ"
             )
 
-    except JWTError:
+    except (JWTError,ValueError):
         raise HTTPException(
             status_code=401,
             detail="Token không hợp lệ hoặc đã hết hạn"
@@ -44,7 +47,7 @@ def get_current_user(
 
     if user is None:
         raise HTTPException(
-            status_code=401,
+            status_code=404,
             detail="Không tìm thấy người dùng"
         )
 
@@ -58,12 +61,13 @@ def get_current_user(
 
 
 def require_admin(
-    current_user: Users = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
+
     if current_user.role != "ADMIN":
         raise HTTPException(
             status_code=403,
-            detail="Bạn không có quyền quản trị"
+            detail="Bạn không có quyền Admin"
         )
 
     return current_user

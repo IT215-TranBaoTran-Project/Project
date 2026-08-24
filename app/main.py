@@ -1,15 +1,16 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI,HTTPException,Request
 from fastapi.responses import JSONResponse
 
-from app.db.database import Base, engine
+from app.db.database import Base,engine
 
 from app.models.users import User
-from app.models.campaigns import Campaign, CampaignMember, CampaignTask
+from app.models.campaigns import Campaign,CampaignMember,CampaignTask
 
 from app.routers import users
 from app.routers import campaign
 from app.routers import campaign_task
 from app.routers import auth
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -38,7 +39,7 @@ def health_check():
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
+async def http_exception_handler(request: Request,exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={

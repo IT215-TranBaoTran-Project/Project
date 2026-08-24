@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models.users import Users
+from app.models.users import User
 from app.schemas.users import UserCreate, LoginRequest
 from app.core.security import (
     hash_password,
@@ -12,11 +12,11 @@ from app.core.security import (
 
 
 def register_user(db: Session, user: UserCreate):
-    existing_user = db.query(Users).filter(
-        Users.email == user.email
+    existing_user = db.query(User).filter(
+        User.email == user.email
     ).first()
 
-    existing_user = db.query(Users).filter( Users.email == user.email).first()
+    existing_user = db.query(User).filter( User.email == user.email).first()
 
 
     if existing_user:
@@ -25,7 +25,7 @@ def register_user(db: Session, user: UserCreate):
             detail="Email đã tồn tại"
         )
 
-    new_user = Users(
+    new_user = User(
         email=user.email,
         password_hash=hash_password(user.password),
         full_name=user.full_name,
@@ -42,8 +42,8 @@ def register_user(db: Session, user: UserCreate):
 
 def login_user(db: Session, user: LoginRequest):
 
-    existing_user = db.query(Users).filter(
-        Users.email == user.email
+    existing_user = db.query(User).filter(
+        User.email == user.email
     ).first()
 
     if not existing_user:

@@ -1,9 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter,Depends,HTTPException,Request
 from sqlalchemy.orm import Session
+
 from app.db.database import get_db
-from app.schemas.users import UserCreate, UserResponse, LoginRequest, TokenResponse
-from app.services.auth import register_user, login_user
-from jose import jwt, JWTError
+
+from app.schemas.users import (
+    UserCreate,
+    UserResponse,
+    LoginRequest,
+    TokenResponse
+)
+
+from app.services.auth import register_user,login_user
+
+from jose import jwt,JWTError
 
 from app.core.security import (
     SECRET_KEY,
@@ -11,21 +20,31 @@ from app.core.security import (
     create_access_token
 )
 
+
 router = APIRouter(
     prefix="/auth",
     tags=["Auth"]
 )
 
+
 login_attempts = {}
 
-@router.post("/register", response_model=UserResponse)
+
+@router.post(
+    "/register",
+    response_model=UserResponse
+)
 def register(
     user: UserCreate,
     db: Session = Depends(get_db)
 ):
-    return register_user(db, user)
+    return register_user(db,user)
 
-@router.post("/login", response_model=TokenResponse)
+
+@router.post(
+    "/login",
+    response_model=TokenResponse
+)
 def login(
     user: LoginRequest,
     request: Request,
@@ -45,7 +64,7 @@ def login(
         )
 
     try:
-        result = login_user(db, user)
+        result = login_user(db,user)
 
         login_attempts[ip]["count"] = 0
 
@@ -58,7 +77,10 @@ def login(
         raise e
 
 
-@router.post("/refresh")
+@router.post(
+    "/refresh",
+    response_model=TokenResponse
+)
 def refresh_token(
     refresh_token: str
 ):
@@ -89,6 +111,7 @@ def refresh_token(
 
         return {
             "access_token": access_token,
+            "refresh_token": refresh_token,
             "token_type": "bearer"
         }
 
