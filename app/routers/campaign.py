@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from app.db.database import get_db
-from app.models.users import Users
+from app.models.users import User
 from app.models.campaigns import Campaign, CampaignMember
 from app.schemas.campaigns import (
     CampaignCreate,
@@ -22,7 +22,7 @@ router = APIRouter(
 def create_campaign(
     campaign: CampaignCreate,
     db: Session = Depends(get_db),
-    current_user: Users = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     new_campaign = Campaign(
         name=campaign.name,
@@ -50,7 +50,7 @@ def create_campaign(
 def get_campaigns(
     search: str = None,
     db: Session = Depends(get_db),
-    current_user: Users = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     campaigns = db.query(Campaign).join(
         CampaignMember,
@@ -75,7 +75,7 @@ def get_campaigns(
 def get_campaign(
     campaign_id: int,
     db: Session = Depends(get_db),
-    current_user: Users = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     campaign = db.query(Campaign).filter(
         Campaign.id == campaign_id
@@ -106,7 +106,7 @@ def update_campaign(
     campaign_id: int,
     campaign: CampaignUpdate,
     db: Session = Depends(get_db),
-    current_user: Users = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     campaign_db = db.query(Campaign).filter(
         Campaign.id == campaign_id
@@ -141,7 +141,7 @@ def patch_campaign(
     campaign_id: int,
     campaign: CampaignUpdate,
     db: Session = Depends(get_db),
-    current_user: Users = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     campaign_db = db.query(Campaign).filter(
         Campaign.id == campaign_id
@@ -175,7 +175,7 @@ def patch_campaign(
 def delete_campaign(
     campaign_id: int,
     db: Session = Depends(get_db),
-    current_user: Users = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     campaign = db.query(Campaign).filter(
         Campaign.id == campaign_id

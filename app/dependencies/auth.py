@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 
 from app.db.database import get_db
-from app.models.users import Users
+from app.models.users import User
 from app.core.security import SECRET_KEY, ALGORITHM
 
 
@@ -38,8 +38,8 @@ def get_current_user(
             detail="Token không hợp lệ hoặc đã hết hạn"
         )
 
-    user = db.query(Users).filter(
-        Users.id == int(user_id)
+    user = db.query(User).filter(
+        User.id == int(user_id)
     ).first()
 
     if user is None:

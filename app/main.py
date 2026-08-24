@@ -11,7 +11,6 @@ from app.routers import campaign
 from app.routers import campaign_task
 from app.routers import auth
 
-
 Base.metadata.create_all(bind=engine)
 
 
