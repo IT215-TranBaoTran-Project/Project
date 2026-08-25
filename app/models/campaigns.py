@@ -26,6 +26,7 @@ class CampaignMember(Base):
     campaign_id = Column(Integer,ForeignKey("campaigns.id"),nullable=False)
     user_id = Column(Integer,ForeignKey("users.id"),nullable=False)
     role = Column(Enum("OWNER","MEMBER"),nullable=False)
+    position = Column(Enum("CONTENT","ADS","DESIGN"),nullable=True)
     joined_at = Column(DateTime,default=datetime.now(timezone.utc))
 
     campaign = relationship("Campaign",back_populates="members")
