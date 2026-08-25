@@ -336,7 +336,27 @@ def delete_campaign_task(
             detail="Không tìm thấy chiến dịch"
         )
 
-    if campaign.owner_id != current_user.id:
+    member = db.query(CampaignMember).filter(
+        CampaignMember.campaign_id == task.campaign_id,
+        CampaignMember.user_id == current_user.id
+    ).first()
+
+    is_owner = campaign.owner_id == current_user.id
+    is_assignee = task.assignee_id == current_user.id
+
+    if not is_owner:
+        if member is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Bạn không thuộc chiến dịch này"
+            )
+
+        if is_assignee:
+            raise HTTPException(
+                status_code=403,
+                detail="Assignee không có quyền xóa công việc"
+            )
+
         raise HTTPException(
             status_code=403,
             detail="Chỉ chủ chiến dịch mới có quyền xóa công việc"
