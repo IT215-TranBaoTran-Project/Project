@@ -1,10 +1,10 @@
 from datetime import datetime
-from pydantic import BaseModel,ConfigDict,Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CampaignBase(BaseModel):
-    name: str = Field(min_length=1,max_length=255)
-    description: str 
+    name: str = Field(min_length=1, max_length=255)
+    description: str
 
 
 class CampaignCreate(CampaignBase):
@@ -19,7 +19,7 @@ class CampaignResponse(CampaignBase):
     id: int
     owner_id: int
     created_at: datetime
-    updated_at: datetime 
+    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -48,23 +48,27 @@ class CampaignMemberResponse(CampaignMemberBase):
 
 
 class CampaignTaskBase(BaseModel):
-    title: str = Field(min_length=1,max_length=255)
-    description: str 
-    due_date: datetime 
+    title: str = Field(min_length=1, max_length=255)
+    description: str
+    due_date: datetime
     priority: str
-    assignee_id: int 
+    assignee_id: int | None = None
 
 
-class CampaignTaskCreate(CampaignTaskBase):
-    campaign_id: int
+class CampaignTaskCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    description: str
+    due_date: datetime
+    priority: str
+    assignee_id: int | None = None
 
 
 class CampaignTaskUpdate(BaseModel):
-    title: str
-    description: str 
-    due_date: datetime
-    priority: str 
-    assignee_id: int 
+    title: str | None = None
+    description: str | None = None
+    due_date: datetime | None = None
+    priority: str | None = None
+    assignee_id: int | None = None
 
 
 class CampaignTaskResponse(CampaignTaskBase):
