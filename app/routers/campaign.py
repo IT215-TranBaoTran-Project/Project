@@ -1,15 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
+
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from app.db.database import get_db
+
 from app.models.users import User
 from app.models.campaigns import Campaign, CampaignMember
+
 from app.schemas.campaigns import (
     CampaignCreate,
     CampaignUpdate,
     CampaignResponse
 )
+
 from app.dependencies.auth import get_current_user
 
 
@@ -18,7 +22,11 @@ router = APIRouter(
     tags=["Campaigns"]
 )
 
-@router.post("", response_model=CampaignResponse)
+
+@router.post(
+    "",
+    response_model=CampaignResponse
+)
 def create_campaign(
     campaign: CampaignCreate,
     db: Session = Depends(get_db),
@@ -36,8 +44,9 @@ def create_campaign(
 
     new_member = CampaignMember(
         campaign_id=new_campaign.id,
-        users_id=current_user.id,
-        role="OWNER"
+        user_id=current_user.id,
+        role="OWNER",
+        position="CONTENT"
     )
 
     db.add(new_member)
@@ -46,9 +55,12 @@ def create_campaign(
     return new_campaign
 
 
-@router.get("", response_model=list[CampaignResponse])
+@router.get(
+    "",
+    response_model=list[CampaignResponse]
+)
 def get_campaigns(
-    search: str = None,
+    search: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -59,7 +71,7 @@ def get_campaigns(
     ).filter(
         or_(
             Campaign.owner_id == current_user.id,
-            CampaignMember.users_id == current_user.id
+            CampaignMember.user_id == current_user.id
         )
     )
 
@@ -71,7 +83,10 @@ def get_campaigns(
     return campaigns.distinct().all()
 
 
-@router.get("/{campaign_id}", response_model=CampaignResponse)
+@router.get(
+    "/{campaign_id}",
+    response_model=CampaignResponse
+)
 def get_campaign(
     campaign_id: int,
     db: Session = Depends(get_db),
@@ -89,10 +104,10 @@ def get_campaign(
 
     member = db.query(CampaignMember).filter(
         CampaignMember.campaign_id == campaign_id,
-        CampaignMember.users_id == current_user.id
+        CampaignMember.user_id == current_user.id
     ).first()
 
-    if member is None:
+    if campaign.owner_id != current_user.id and member is None:
         raise HTTPException(
             status_code=403,
             detail="Bạn không phải thành viên của chiến dịch"
@@ -101,7 +116,10 @@ def get_campaign(
     return campaign
 
 
-@router.put("/{campaign_id}", response_model=CampaignResponse)
+@router.put(
+    "/{campaign_id}",
+    response_model=CampaignResponse
+)
 def update_campaign(
     campaign_id: int,
     campaign: CampaignUpdate,
@@ -136,7 +154,10 @@ def update_campaign(
     return campaign_db
 
 
-@router.patch("/{campaign_id}", response_model=CampaignResponse)
+@router.patch(
+    "/{campaign_id}",
+    response_model=CampaignResponse
+)
 def patch_campaign(
     campaign_id: int,
     campaign: CampaignUpdate,
@@ -171,7 +192,9 @@ def patch_campaign(
     return campaign_db
 
 
-@router.delete("/{campaign_id}")
+@router.delete(
+    "/{campaign_id}"
+)
 def delete_campaign(
     campaign_id: int,
     db: Session = Depends(get_db),

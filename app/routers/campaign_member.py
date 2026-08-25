@@ -1,10 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
+
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.models.users import Users
+
+from app.models.users import User
 from app.models.campaigns import Campaign, CampaignMember
-from app.schemas.campaign_member import CampaignMemberCreate, CampaignMemberResponse
+
+from app.schemas.campaign_member import (
+    CampaignMemberCreate,
+    CampaignMemberResponse
+)
+
 from app.dependencies.auth import get_current_user
 
 
@@ -14,14 +21,16 @@ router = APIRouter(
 )
 
 
-@router.post("/{campaign_id}/members", response_model=CampaignMemberResponse)
+@router.post(
+    "/{campaign_id}/members",
+    response_model=CampaignMemberResponse
+)
 def add_member(
     campaign_id: int,
     member: CampaignMemberCreate,
     db: Session = Depends(get_db),
-    current_user: Users = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
-
     campaign = db.query(Campaign).filter(
         Campaign.id == campaign_id
     ).first()
@@ -38,8 +47,8 @@ def add_member(
             detail="Chỉ OWNER mới được thêm thành viên"
         )
 
-    user = db.query(Users).filter(
-        Users.id == member.users_id
+    user = db.query(User).filter(
+        User.id == member.user_id
     ).first()
 
     if user is None:
@@ -50,7 +59,7 @@ def add_member(
 
     existing_member = db.query(CampaignMember).filter(
         CampaignMember.campaign_id == campaign_id,
-        CampaignMember.users_id == member.users_id
+        CampaignMember.user_id == member.user_id
     ).first()
 
     if existing_member:
@@ -59,10 +68,21 @@ def add_member(
             detail="Người dùng đã là thành viên của chiến dịch"
         )
 
+    if member.position not in [
+        "CONTENT",
+        "ADS",
+        "DESIGN"
+    ]:
+        raise HTTPException(
+            status_code=400,
+            detail="Position phải là CONTENT, ADS hoặc DESIGN"
+        )
+
     new_member = CampaignMember(
         campaign_id=campaign_id,
-        users_id=member.users_id,
-        role="MEMBER"
+        user_id=member.user_id,
+        role="MEMBER",
+        position=member.position
     )
 
     db.add(new_member)
@@ -71,14 +91,16 @@ def add_member(
 
     return new_member
 
-@router.delete("/{campaign_id}/members/{user_id}")
+
+@router.delete(
+    "/{campaign_id}/members/{user_id}"
+)
 def delete_member(
     campaign_id: int,
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: Users = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
-    
     campaign = db.query(Campaign).filter(
         Campaign.id == campaign_id
     ).first()
@@ -97,7 +119,7 @@ def delete_member(
 
     member = db.query(CampaignMember).filter(
         CampaignMember.campaign_id == campaign_id,
-        CampaignMember.users_id == user_id
+        CampaignMember.user_id == user_id
     ).first()
 
     if member is None:
@@ -124,11 +146,15 @@ def delete_member(
     return {
         "message": "Xóa thành viên thành công"
     }
-@router.get("/{campaign_id}/members")
+
+
+@router.get(
+    "/{campaign_id}/members"
+)
 def get_members(
     campaign_id: int,
     db: Session = Depends(get_db),
-    current_user: Users = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     campaign = db.query(Campaign).filter(
         Campaign.id == campaign_id
@@ -140,13 +166,12 @@ def get_members(
             detail="Không tìm thấy chiến dịch"
         )
 
-
     member = db.query(CampaignMember).filter(
         CampaignMember.campaign_id == campaign_id,
-        CampaignMember.users_id == current_user.id
+        CampaignMember.user_id == current_user.id
     ).first()
 
-    if member is None:
+    if campaign.owner_id != current_user.id and member is None:
         raise HTTPException(
             status_code=403,
             detail="Bạn không phải thành viên của chiến dịch"
