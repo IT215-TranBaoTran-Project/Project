@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column,Integer,String,Text,DateTime,ForeignKey,Enum
+
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import relationship
+
 from app.db.database import Base
 
 
@@ -12,11 +14,23 @@ class Campaign(Base):
     description = Column(Text,nullable=True)
     owner_id = Column(Integer,ForeignKey("users.id"),nullable=False)
     created_at = Column(DateTime,default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime,default=datetime.now(timezone.utc),onupdate=datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=datetime.now(timezone.utc),
+        onupdate=datetime.now(timezone.utc)
+    )
 
     owner = relationship("User",back_populates="owned_campaigns")
-    members = relationship("CampaignMember",back_populates="campaign",cascade="all, delete-orphan")
-    tasks = relationship("CampaignTask",back_populates="campaign",cascade="all, delete-orphan")
+    members = relationship(
+        "CampaignMember",
+        back_populates="campaign",
+        cascade="all, delete-orphan"
+    )
+    tasks = relationship(
+        "CampaignTask",
+        back_populates="campaign",
+        cascade="all, delete-orphan"
+    )
 
 
 class CampaignMember(Base):
@@ -26,7 +40,7 @@ class CampaignMember(Base):
     campaign_id = Column(Integer,ForeignKey("campaigns.id"),nullable=False)
     user_id = Column(Integer,ForeignKey("users.id"),nullable=False)
     role = Column(Enum("OWNER","MEMBER"),nullable=False)
-    position = Column(Enum("CONTENT","ADS","DESIGN"),nullable=True)
+    position = Column(Enum("CONTENT","ADS","DESIGN"),nullable=False)
     joined_at = Column(DateTime,default=datetime.now(timezone.utc))
 
     campaign = relationship("Campaign",back_populates="members")
@@ -45,7 +59,11 @@ class CampaignTask(Base):
     status = Column(String(50),nullable=False,default="TODO")
     priority = Column(String(50),nullable=True)
     created_at = Column(DateTime,default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime,default=datetime.now(timezone.utc),onupdate=datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=datetime.now(timezone.utc),
+        onupdate=datetime.now(timezone.utc)
+    )
 
     campaign = relationship("Campaign",back_populates="tasks")
     assignee = relationship("User",foreign_keys=[assignee_id])

@@ -1,13 +1,17 @@
 from typing import Literal
 
-from fastapi import APIRouter,Depends,HTTPException,Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.users import User
-from app.models.campaigns import Campaign,CampaignMember,CampaignTask
-from app.schemas.campaigns import CampaignTaskCreate,CampaignTaskUpdate,CampaignTaskResponse
+from app.models.campaigns import Campaign, CampaignMember, CampaignTask
+from app.schemas.campaigns import (
+    CampaignTaskCreate,
+    CampaignTaskUpdate,
+    CampaignTaskResponse
+)
 
 
 router = APIRouter(
@@ -60,7 +64,7 @@ def create_campaign_task(
                 detail="Người được giao không thuộc chiến dịch"
             )
 
-        if assignee.position not in ["CONTENT","ADS","DESIGN"]:
+        if assignee.position not in ["CONTENT", "ADS", "DESIGN"]:
             raise HTTPException(
                 status_code=403,
                 detail="Người được giao phải thuộc CONTENT, ADS hoặc DESIGN"
@@ -93,10 +97,10 @@ def get_campaign_tasks(
     priority: str | None = Query(default=None),
     assignee_id: int | None = Query(default=None),
     search: str | None = Query(default=None),
-    limit: int = Query(default=10,ge=1,le=100),
-    offset: int = Query(default=0,ge=0),
-    sort_by: Literal["created_at","due_date"] = "created_at",
-    sort_order: Literal["asc","desc"] = "desc",
+    limit: int = Query(default=10, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    sort_by: Literal["created_at", "due_date"] = "created_at",
+    sort_order: Literal["asc", "desc"] = "desc",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -121,13 +125,21 @@ def get_campaign_tasks(
             detail="Bạn không phải thành viên của chiến dịch"
         )
 
-    if status is not None and status not in ["TODO","IN_PROGRESS","DONE"]:
+    if status is not None and status not in [
+        "TODO",
+        "IN_PROGRESS",
+        "DONE"
+    ]:
         raise HTTPException(
             status_code=400,
             detail="Status phải là TODO, IN_PROGRESS hoặc DONE"
         )
 
-    if priority is not None and priority not in ["LOW","MEDIUM","HIGH"]:
+    if priority is not None and priority not in [
+        "LOW",
+        "MEDIUM",
+        "HIGH"
+    ]:
         raise HTTPException(
             status_code=400,
             detail="Priority phải là LOW, MEDIUM hoặc HIGH"
@@ -280,14 +292,14 @@ def update_campaign_task(
                     detail="Người được giao không thuộc chiến dịch"
                 )
 
-            if assignee.position not in ["CONTENT","ADS","DESIGN"]:
+            if assignee.position not in ["CONTENT", "ADS", "DESIGN"]:
                 raise HTTPException(
                     status_code=403,
                     detail="Người được giao phải thuộc CONTENT, ADS hoặc DESIGN"
                 )
 
-    for field,value in update_data.items():
-        setattr(task,field,value)
+    for field, value in update_data.items():
+        setattr(task, field, value)
 
     db.commit()
     db.refresh(task)
