@@ -47,6 +47,9 @@ class CampaignTask(Base):
 
     id = Column(Integer,primary_key=True,autoincrement=True)
     campaign_id = Column(Integer,ForeignKey("campaigns.id"),nullable=False)
+    
+    assignee_id = Column(Integer,ForeignKey("users.id"),nullable=True)
+    
     title = Column(String(255),nullable=False)
     description = Column(Text,nullable=True)
     due_date = Column(DateTime,nullable=True)
@@ -55,3 +58,4 @@ class CampaignTask(Base):
     updated_at = Column(DateTime,default=datetime.now(timezone.utc),onupdate=datetime.now(timezone.utc))
 
     campaign = relationship("Campaign",back_populates="tasks")
+    assignee = relationship( "User",foreign_keys=[assignee_id])

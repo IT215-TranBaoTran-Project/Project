@@ -16,9 +16,6 @@ def register_user(db: Session, user: UserCreate):
         User.email == user.email
     ).first()
 
-    existing_user = db.query(User).filter( User.email == user.email).first()
-
-
     if existing_user:
         raise HTTPException(
             status_code=400,
@@ -26,12 +23,12 @@ def register_user(db: Session, user: UserCreate):
         )
 
     new_user = User(
-        email=user.email,
-        password_hash=hash_password(user.password),
-        full_name=user.full_name,
-        role=user.role,
-        is_active=user.is_active
-    )
+    email=user.email,
+    password_hash=hash_password(user.password),
+    full_name=user.full_name,
+    role="USER",
+    is_active=True
+)
 
     db.add(new_user)
     db.commit()
