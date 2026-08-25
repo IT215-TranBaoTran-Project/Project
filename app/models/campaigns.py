@@ -1,8 +1,6 @@
 from datetime import datetime, timezone
-
 from sqlalchemy import Column,Integer,String,Text,DateTime,ForeignKey,Enum
 from sqlalchemy.orm import relationship
-
 from app.db.database import Base
 
 
@@ -17,16 +15,8 @@ class Campaign(Base):
     updated_at = Column(DateTime,default=datetime.now(timezone.utc),onupdate=datetime.now(timezone.utc))
 
     owner = relationship("User",back_populates="owned_campaigns")
-    members = relationship(
-        "CampaignMember",
-        back_populates="campaign",
-        cascade="all, delete-orphan"
-    )
-    tasks = relationship(
-        "CampaignTask",
-        back_populates="campaign",
-        cascade="all, delete-orphan"
-    )
+    members = relationship("CampaignMember",back_populates="campaign",cascade="all, delete-orphan")
+    tasks = relationship("CampaignTask",back_populates="campaign",cascade="all, delete-orphan")
 
 
 class CampaignMember(Base):
@@ -47,15 +37,14 @@ class CampaignTask(Base):
 
     id = Column(Integer,primary_key=True,autoincrement=True)
     campaign_id = Column(Integer,ForeignKey("campaigns.id"),nullable=False)
-    
     assignee_id = Column(Integer,ForeignKey("users.id"),nullable=True)
-    
     title = Column(String(255),nullable=False)
     description = Column(Text,nullable=True)
     due_date = Column(DateTime,nullable=True)
+    status = Column(String(50),nullable=False,default="TODO")
     priority = Column(String(50),nullable=True)
     created_at = Column(DateTime,default=datetime.now(timezone.utc))
     updated_at = Column(DateTime,default=datetime.now(timezone.utc),onupdate=datetime.now(timezone.utc))
 
     campaign = relationship("Campaign",back_populates="tasks")
-    assignee = relationship( "User",foreign_keys=[assignee_id])
+    assignee = relationship("User",foreign_keys=[assignee_id])
