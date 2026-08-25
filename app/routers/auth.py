@@ -1,5 +1,8 @@
-from fastapi import APIRouter,Depends,HTTPException,Request
+from fastapi import APIRouter, Depends
+
 from sqlalchemy.orm import Session
+
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.db.database import get_db
 
@@ -10,14 +13,9 @@ from app.schemas.users import (
     TokenResponse
 )
 
-from app.services.auth import register_user,login_user
-
-from jose import jwt,JWTError
-
-from app.core.security import (
-    SECRET_KEY,
-    ALGORITHM,
-    create_access_token
+from app.services.auth import (
+    register_user,
+    login_user
 )
 
 
@@ -25,9 +23,6 @@ router = APIRouter(
     prefix="/auth",
     tags=["Auth"]
 )
-
-
-login_attempts = {}
 
 
 @router.post(
@@ -38,7 +33,10 @@ def register(
     user: UserCreate,
     db: Session = Depends(get_db)
 ):
-    return register_user(db,user)
+    return register_user(
+        db,
+        user
+    )
 
 
 @router.post(
@@ -46,77 +44,13 @@ def register(
     response_model=TokenResponse
 )
 def login(
-    user: LoginRequest,
-    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    ip = request.client.host
-
-    if ip not in login_attempts:
-        login_attempts[ip] = {
-            "count": 0
-        }
-
-    if login_attempts[ip]["count"] >= 5:
-        raise HTTPException(
-            status_code=429,
-            detail="Bạn đăng nhập sai quá nhiều lần, vui lòng thử lại sau"
+    return login_user(
+        db,
+        LoginRequest(
+            email=form_data.username,
+            password=form_data.password
         )
-
-    try:
-        result = login_user(db,user)
-
-        login_attempts[ip]["count"] = 0
-
-        return result
-
-    except HTTPException as e:
-        if e.status_code == 401:
-            login_attempts[ip]["count"] += 1
-
-        raise e
-
-
-@router.post(
-    "/refresh",
-    response_model=TokenResponse
-)
-def refresh_token(
-    refresh_token: str
-):
-    try:
-        payload = jwt.decode(
-            refresh_token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM]
-        )
-
-        if payload.get("type") != "refresh":
-            raise HTTPException(
-                status_code=401,
-                detail="Refresh token không hợp lệ"
-            )
-
-        user_id = payload.get("sub")
-
-        if user_id is None:
-            raise HTTPException(
-                status_code=401,
-                detail="Refresh token không hợp lệ"
-            )
-
-        access_token = create_access_token({
-            "sub": user_id
-        })
-
-        return {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "bearer"
-        }
-
-    except JWTError:
-        raise HTTPException(
-            status_code=401,
-            detail="Refresh token không hợp lệ hoặc đã hết hạn"
-        )
+    )
