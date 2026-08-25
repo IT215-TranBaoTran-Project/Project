@@ -63,7 +63,7 @@ def create_campaign_task(
         if assignee.position not in ["CONTENT","ADS","DESIGN"]:
             raise HTTPException(
                 status_code=403,
-                detail="Người được giao phải thuộc bộ phận CONTENT, ADS hoặc DESIGN"
+                detail="Người được giao phải thuộc CONTENT, ADS hoặc DESIGN"
             )
 
     new_task = CampaignTask(
@@ -283,7 +283,7 @@ def update_campaign_task(
             if assignee.position not in ["CONTENT","ADS","DESIGN"]:
                 raise HTTPException(
                     status_code=403,
-                    detail="Người được giao phải thuộc bộ phận CONTENT, ADS hoặc DESIGN"
+                    detail="Người được giao phải thuộc CONTENT, ADS hoặc DESIGN"
                 )
 
     for field,value in update_data.items():
