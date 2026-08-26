@@ -1,12 +1,15 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.dependencies.auth import get_current_user
+
 from app.models.users import User
 from app.models.campaigns import Campaign, CampaignMember, CampaignTask
+
 from app.schemas.campaigns import (
     CampaignTaskCreate,
     CampaignTaskUpdate,
@@ -23,7 +26,15 @@ router = APIRouter(
 @router.post(
     "/campaigns/{campaign_id}/campaign-tasks",
     response_model=CampaignTaskResponse,
-    status_code=201
+    status_code=status.HTTP_201_CREATED,
+    summary="Tạo đầu việc chiến dịch",
+    description=(
+        "Tạo một đầu việc thuộc chiến dịch. "
+        "OWNER hoặc thành viên của chiến dịch có quyền tạo. "
+        "Assignee nếu được chỉ định phải là nhân sự CONTENT, ADS hoặc DESIGN "
+        "thuộc chính chiến dịch đó."
+    ),
+    response_description="Thông tin đầu việc vừa được tạo."
 )
 def create_campaign_task(
     campaign_id: int,
@@ -37,7 +48,7 @@ def create_campaign_task(
 
     if campaign is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Không tìm thấy chiến dịch"
         )
 
@@ -48,7 +59,7 @@ def create_campaign_task(
 
     if campaign.owner_id != current_user.id and member is None:
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Bạn không có quyền tạo công việc"
         )
 
@@ -60,14 +71,20 @@ def create_campaign_task(
 
         if assignee is None:
             raise HTTPException(
-                status_code=403,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="Người được giao không thuộc chiến dịch"
             )
 
-        if assignee.position not in ["CONTENT", "ADS", "DESIGN"]:
+        if assignee.position not in [
+            "CONTENT",
+            "ADS",
+            "DESIGN"
+        ]:
             raise HTTPException(
-                status_code=403,
-                detail="Người được giao phải thuộc CONTENT, ADS hoặc DESIGN"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Người được giao phải thuộc CONTENT, ADS hoặc DESIGN"
+                )
             )
 
     new_task = CampaignTask(
@@ -89,18 +106,54 @@ def create_campaign_task(
 
 @router.get(
     "/campaigns/{campaign_id}/campaign-tasks",
-    response_model=list[CampaignTaskResponse]
+    response_model=list[CampaignTaskResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Lấy danh sách đầu việc chiến dịch",
+    description=(
+        "Lấy danh sách đầu việc thuộc một chiến dịch. "
+        "Hỗ trợ lọc theo status, priority, assignee_id; "
+        "tìm kiếm theo title; phân trang bằng limit/offset; "
+        "và sắp xếp theo created_at hoặc due_date."
+    ),
+    response_description="Danh sách đầu việc của chiến dịch."
 )
 def get_campaign_tasks(
     campaign_id: int,
-    status: str | None = Query(default=None),
-    priority: str | None = Query(default=None),
-    assignee_id: int | None = Query(default=None),
-    search: str | None = Query(default=None),
-    limit: int = Query(default=10, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
-    sort_by: Literal["created_at", "due_date"] = "created_at",
-    sort_order: Literal["asc", "desc"] = "desc",
+    status: str | None = Query(
+        default=None,
+        description="Lọc theo trạng thái: TODO, IN_PROGRESS hoặc DONE."
+    ),
+    priority: str | None = Query(
+        default=None,
+        description="Lọc theo độ ưu tiên: LOW, MEDIUM hoặc HIGH."
+    ),
+    assignee_id: int | None = Query(
+        default=None,
+        description="Lọc theo ID người được giao."
+    ),
+    search: str | None = Query(
+        default=None,
+        description="Tìm kiếm đầu việc theo title."
+    ),
+    limit: int = Query(
+        default=10,
+        ge=1,
+        le=100,
+        description="Số lượng bản ghi tối đa trả về."
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+        description="Số bản ghi bỏ qua trước khi lấy dữ liệu."
+    ),
+    sort_by: Literal["created_at", "due_date"] = Query(
+        default="created_at",
+        description="Trường dùng để sắp xếp."
+    ),
+    sort_order: Literal["asc", "desc"] = Query(
+        default="desc",
+        description="Thứ tự sắp xếp tăng dần hoặc giảm dần."
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -110,7 +163,7 @@ def get_campaign_tasks(
 
     if campaign is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Không tìm thấy chiến dịch"
         )
 
@@ -121,7 +174,7 @@ def get_campaign_tasks(
 
     if campaign.owner_id != current_user.id and member is None:
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Bạn không phải thành viên của chiến dịch"
         )
 
@@ -131,7 +184,7 @@ def get_campaign_tasks(
         "DONE"
     ]:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Status phải là TODO, IN_PROGRESS hoặc DONE"
         )
 
@@ -141,7 +194,7 @@ def get_campaign_tasks(
         "HIGH"
     ]:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Priority phải là LOW, MEDIUM hoặc HIGH"
         )
 
@@ -184,7 +237,15 @@ def get_campaign_tasks(
 
 @router.get(
     "/campaign-tasks/{task_id}",
-    response_model=CampaignTaskResponse
+    response_model=CampaignTaskResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Lấy chi tiết đầu việc",
+    description=(
+        "Lấy thông tin chi tiết của một đầu việc chiến dịch. "
+        "Hệ thống kiểm tra người dùng phải thuộc chiến dịch "
+        "trước khi trả dữ liệu."
+    ),
+    response_description="Thông tin chi tiết đầu việc."
 )
 def get_campaign_task(
     task_id: int,
@@ -197,7 +258,7 @@ def get_campaign_task(
 
     if task is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Không tìm thấy công việc"
         )
 
@@ -207,7 +268,7 @@ def get_campaign_task(
 
     if campaign is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Không tìm thấy chiến dịch"
         )
 
@@ -218,7 +279,7 @@ def get_campaign_task(
 
     if campaign.owner_id != current_user.id and member is None:
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Bạn không thuộc chiến dịch này"
         )
 
@@ -227,7 +288,15 @@ def get_campaign_task(
 
 @router.patch(
     "/campaign-tasks/{task_id}",
-    response_model=CampaignTaskResponse
+    response_model=CampaignTaskResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Cập nhật đầu việc",
+    description=(
+        "Cập nhật một phần thông tin đầu việc. "
+        "Chỉ các trường được gửi trong request mới được cập nhật. "
+        "OWNER hoặc assignee hiện tại có quyền cập nhật."
+    ),
+    response_description="Thông tin đầu việc sau khi cập nhật."
 )
 def update_campaign_task(
     task_id: int,
@@ -241,7 +310,7 @@ def update_campaign_task(
 
     if task is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Không tìm thấy công việc"
         )
 
@@ -251,7 +320,7 @@ def update_campaign_task(
 
     if campaign is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Không tìm thấy chiến dịch"
         )
 
@@ -266,16 +335,18 @@ def update_campaign_task(
     if not is_owner and not is_assignee:
         if member is None:
             raise HTTPException(
-                status_code=403,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="Bạn không thuộc chiến dịch này"
             )
 
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Bạn không có quyền cập nhật công việc"
         )
 
-    update_data = task_data.model_dump(exclude_unset=True)
+    update_data = task_data.model_dump(
+        exclude_unset=True
+    )
 
     if "assignee_id" in update_data:
         new_assignee_id = update_data["assignee_id"]
@@ -288,14 +359,20 @@ def update_campaign_task(
 
             if assignee is None:
                 raise HTTPException(
-                    status_code=403,
+                    status_code=status.HTTP_403_FORBIDDEN,
                     detail="Người được giao không thuộc chiến dịch"
                 )
 
-            if assignee.position not in ["CONTENT", "ADS", "DESIGN"]:
+            if assignee.position not in [
+                "CONTENT",
+                "ADS",
+                "DESIGN"
+            ]:
                 raise HTTPException(
-                    status_code=403,
-                    detail="Người được giao phải thuộc CONTENT, ADS hoặc DESIGN"
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=(
+                        "Người được giao phải thuộc CONTENT, ADS hoặc DESIGN"
+                    )
                 )
 
     for field, value in update_data.items():
@@ -309,7 +386,13 @@ def update_campaign_task(
 
 @router.delete(
     "/campaign-tasks/{task_id}",
-    status_code=204
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Xóa đầu việc",
+    description=(
+        "Xóa một đầu việc chiến dịch. "
+        "Chỉ OWNER của chiến dịch mới có quyền xóa."
+    ),
+    response_description="Không có nội dung trả về khi xóa thành công."
 )
 def delete_campaign_task(
     task_id: int,
@@ -322,7 +405,7 @@ def delete_campaign_task(
 
     if task is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Không tìm thấy công việc"
         )
 
@@ -332,7 +415,7 @@ def delete_campaign_task(
 
     if campaign is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Không tìm thấy chiến dịch"
         )
 
@@ -347,18 +430,18 @@ def delete_campaign_task(
     if not is_owner:
         if member is None:
             raise HTTPException(
-                status_code=403,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="Bạn không thuộc chiến dịch này"
             )
 
         if is_assignee:
             raise HTTPException(
-                status_code=403,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="Assignee không có quyền xóa công việc"
             )
 
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Chỉ chủ chiến dịch mới có quyền xóa công việc"
         )
 

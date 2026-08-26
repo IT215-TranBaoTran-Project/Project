@@ -53,7 +53,7 @@ class CampaignTaskBase(BaseModel):
     due_date: datetime
     status: str
     priority: str
-    assignee_id: int | None = None
+    assignee_id: int 
 
     @field_validator("status")
     @classmethod
@@ -75,7 +75,7 @@ class CampaignTaskCreate(BaseModel):
     description: str
     due_date: datetime
     priority: str
-    assignee_id: int | None = None
+    assignee_id: int 
 
     @field_validator("priority")
     @classmethod
@@ -86,12 +86,12 @@ class CampaignTaskCreate(BaseModel):
 
 
 class CampaignTaskUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    due_date: datetime | None = None
-    status: str | None = None
-    priority: str | None = None
-    assignee_id: int | None = None
+    title: str 
+    description: str 
+    due_date: datetime 
+    status: str 
+    priority: str 
+    assignee_id: int 
 
     @field_validator("status")
     @classmethod
