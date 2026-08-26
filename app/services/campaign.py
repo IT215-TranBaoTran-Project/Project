@@ -53,13 +53,8 @@ def get_campaigns(
     current_user: User,
     search: str | None = None
 ):
-    query = (
-        db.query(Campaign)
-        .join(
-            CampaignMember,
-            Campaign.id == CampaignMember.campaign_id,
-            isouter=True
-        )
+    query = (db.query(Campaign).join(CampaignMember,
+            Campaign.id == CampaignMember.campaign_id,isouter=True)
         .filter(
             or_(
                 Campaign.owner_id == current_user.id,
