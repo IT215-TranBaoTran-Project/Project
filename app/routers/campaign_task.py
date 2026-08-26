@@ -1,451 +1,132 @@
-from typing import Literal
-
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.dependencies.auth import get_current_user
-
 from app.models.users import User
-from app.models.campaigns import Campaign, CampaignMember, CampaignTask
-
-from app.schemas.campaigns import (
+from app.schemas.campaign_task import (
     CampaignTaskCreate,
     CampaignTaskUpdate,
     CampaignTaskResponse
 )
+from app.services.campaign_task import (
+    create_campaign_task,
+    get_campaign_tasks,
+    get_campaign_task,
+    update_campaign_task,
+    delete_campaign_task
+)
 
 
 router = APIRouter(
-    prefix="",
+    prefix="/campaigns",
     tags=["Campaign Tasks"]
 )
 
 
 @router.post(
-    "/campaigns/{campaign_id}/campaign-tasks",
-    response_model=CampaignTaskResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Tạo đầu việc chiến dịch",
-    description=(
-        "Tạo một đầu việc thuộc chiến dịch. "
-        "OWNER hoặc thành viên của chiến dịch có quyền tạo. "
-        "Assignee nếu được chỉ định phải là nhân sự CONTENT, ADS hoặc DESIGN "
-        "thuộc chính chiến dịch đó."
-    ),
-    response_description="Thông tin đầu việc vừa được tạo."
+    "/{campaign_id}/tasks",
+    response_model=CampaignTaskResponse
 )
-def create_campaign_task(
+def create_task(
     campaign_id: int,
     task: CampaignTaskCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id
-    ).first()
-
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Không tìm thấy chiến dịch"
-        )
-
-    member = db.query(CampaignMember).filter(
-        CampaignMember.campaign_id == campaign_id,
-        CampaignMember.user_id == current_user.id
-    ).first()
-
-    if campaign.owner_id != current_user.id and member is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn không có quyền tạo công việc"
-        )
-
-    if task.assignee_id is not None:
-        assignee = db.query(CampaignMember).filter(
-            CampaignMember.campaign_id == campaign_id,
-            CampaignMember.user_id == task.assignee_id
-        ).first()
-
-        if assignee is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Người được giao không thuộc chiến dịch"
-            )
-
-        if assignee.position not in [
-            "CONTENT",
-            "ADS",
-            "DESIGN"
-        ]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    "Người được giao phải thuộc CONTENT, ADS hoặc DESIGN"
-                )
-            )
-
-    new_task = CampaignTask(
-        campaign_id=campaign_id,
-        assignee_id=task.assignee_id,
-        title=task.title,
-        description=task.description,
-        due_date=task.due_date,
-        status="TODO",
-        priority=task.priority
+    return create_campaign_task(
+        db,
+        current_user,
+        campaign_id,
+        task.title,
+        task.description,
+        task.due_date,
+        task.priority,
+        task.assignee_id
     )
-
-    db.add(new_task)
-    db.commit()
-    db.refresh(new_task)
-
-    return new_task
 
 
 @router.get(
-    "/campaigns/{campaign_id}/campaign-tasks",
-    response_model=list[CampaignTaskResponse],
-    status_code=status.HTTP_200_OK,
-    summary="Lấy danh sách đầu việc chiến dịch",
-    description=(
-        "Lấy danh sách đầu việc thuộc một chiến dịch. "
-        "Hỗ trợ lọc theo status, priority, assignee_id; "
-        "tìm kiếm theo title; phân trang bằng limit/offset; "
-        "và sắp xếp theo created_at hoặc due_date."
-    ),
-    response_description="Danh sách đầu việc của chiến dịch."
+    "/{campaign_id}/tasks",
+    response_model=list[CampaignTaskResponse]
 )
-def get_campaign_tasks(
+def get_tasks(
     campaign_id: int,
-    status: str | None = Query(
-        default=None,
-        description="Lọc theo trạng thái: TODO, IN_PROGRESS hoặc DONE."
-    ),
-    priority: str | None = Query(
-        default=None,
-        description="Lọc theo độ ưu tiên: LOW, MEDIUM hoặc HIGH."
-    ),
-    assignee_id: int | None = Query(
-        default=None,
-        description="Lọc theo ID người được giao."
-    ),
-    search: str | None = Query(
-        default=None,
-        description="Tìm kiếm đầu việc theo title."
-    ),
-    limit: int = Query(
-        default=10,
-        ge=1,
-        le=100,
-        description="Số lượng bản ghi tối đa trả về."
-    ),
-    offset: int = Query(
-        default=0,
-        ge=0,
-        description="Số bản ghi bỏ qua trước khi lấy dữ liệu."
-    ),
-    sort_by: Literal["created_at", "due_date"] = Query(
-        default="created_at",
-        description="Trường dùng để sắp xếp."
-    ),
-    sort_order: Literal["asc", "desc"] = Query(
-        default="desc",
-        description="Thứ tự sắp xếp tăng dần hoặc giảm dần."
-    ),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    status: str | None = None,
+    priority: str | None = None,
+    assignee_id: int | None = None,
+    search: str | None = None,
+    limit: int = 10,
+    offset: int = 0,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id
-    ).first()
-
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Không tìm thấy chiến dịch"
-        )
-
-    member = db.query(CampaignMember).filter(
-        CampaignMember.campaign_id == campaign_id,
-        CampaignMember.user_id == current_user.id
-    ).first()
-
-    if campaign.owner_id != current_user.id and member is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn không phải thành viên của chiến dịch"
-        )
-
-    if status is not None and status not in [
-        "TODO",
-        "IN_PROGRESS",
-        "DONE"
-    ]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Status phải là TODO, IN_PROGRESS hoặc DONE"
-        )
-
-    if priority is not None and priority not in [
-        "LOW",
-        "MEDIUM",
-        "HIGH"
-    ]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Priority phải là LOW, MEDIUM hoặc HIGH"
-        )
-
-    query = db.query(CampaignTask).filter(
-        CampaignTask.campaign_id == campaign_id
+    return get_campaign_tasks(
+        db,
+        current_user,
+        campaign_id,
+        status,
+        priority,
+        assignee_id,
+        search,
+        limit,
+        offset,
+        sort_by,
+        sort_order
     )
-
-    if status is not None:
-        query = query.filter(
-            CampaignTask.status == status
-        )
-
-    if priority is not None:
-        query = query.filter(
-            CampaignTask.priority == priority
-        )
-
-    if assignee_id is not None:
-        query = query.filter(
-            CampaignTask.assignee_id == assignee_id
-        )
-
-    if search is not None:
-        query = query.filter(
-            CampaignTask.title.ilike(f"%{search}%")
-        )
-
-    if sort_by == "created_at":
-        sort_column = CampaignTask.created_at
-    else:
-        sort_column = CampaignTask.due_date
-
-    if sort_order == "asc":
-        query = query.order_by(sort_column.asc())
-    else:
-        query = query.order_by(sort_column.desc())
-
-    return query.offset(offset).limit(limit).all()
 
 
 @router.get(
-    "/campaign-tasks/{task_id}",
-    response_model=CampaignTaskResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Lấy chi tiết đầu việc",
-    description=(
-        "Lấy thông tin chi tiết của một đầu việc chiến dịch. "
-        "Hệ thống kiểm tra người dùng phải thuộc chiến dịch "
-        "trước khi trả dữ liệu."
-    ),
-    response_description="Thông tin chi tiết đầu việc."
+    "/tasks/{task_id}",
+    response_model=CampaignTaskResponse
 )
-def get_campaign_task(
+def get_task(
     task_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    task = db.query(CampaignTask).filter(
-        CampaignTask.id == task_id
-    ).first()
-
-    if task is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Không tìm thấy công việc"
-        )
-
-    campaign = db.query(Campaign).filter(
-        Campaign.id == task.campaign_id
-    ).first()
-
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Không tìm thấy chiến dịch"
-        )
-
-    member = db.query(CampaignMember).filter(
-        CampaignMember.campaign_id == task.campaign_id,
-        CampaignMember.user_id == current_user.id
-    ).first()
-
-    if campaign.owner_id != current_user.id and member is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn không thuộc chiến dịch này"
-        )
-
-    return task
-
-
-@router.patch(
-    "/campaign-tasks/{task_id}",
-    response_model=CampaignTaskResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Cập nhật đầu việc",
-    description=(
-        "Cập nhật một phần thông tin đầu việc. "
-        "Chỉ các trường được gửi trong request mới được cập nhật. "
-        "OWNER hoặc assignee hiện tại có quyền cập nhật."
-    ),
-    response_description="Thông tin đầu việc sau khi cập nhật."
-)
-def update_campaign_task(
-    task_id: int,
-    task_data: CampaignTaskUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    task = db.query(CampaignTask).filter(
-        CampaignTask.id == task_id
-    ).first()
-
-    if task is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Không tìm thấy công việc"
-        )
-
-    campaign = db.query(Campaign).filter(
-        Campaign.id == task.campaign_id
-    ).first()
-
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Không tìm thấy chiến dịch"
-        )
-
-    member = db.query(CampaignMember).filter(
-        CampaignMember.campaign_id == task.campaign_id,
-        CampaignMember.user_id == current_user.id
-    ).first()
-
-    is_owner = campaign.owner_id == current_user.id
-    is_assignee = task.assignee_id == current_user.id
-
-    if not is_owner and not is_assignee:
-        if member is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bạn không thuộc chiến dịch này"
-            )
-
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn không có quyền cập nhật công việc"
-        )
-
-    update_data = task_data.model_dump(
-        exclude_unset=True
+    return get_campaign_task(
+        db,
+        current_user,
+        task_id
     )
 
-    if "assignee_id" in update_data:
-        new_assignee_id = update_data["assignee_id"]
 
-        if new_assignee_id is not None:
-            assignee = db.query(CampaignMember).filter(
-                CampaignMember.campaign_id == task.campaign_id,
-                CampaignMember.user_id == new_assignee_id
-            ).first()
-
-            if assignee is None:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Người được giao không thuộc chiến dịch"
-                )
-
-            if assignee.position not in [
-                "CONTENT",
-                "ADS",
-                "DESIGN"
-            ]:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=(
-                        "Người được giao phải thuộc CONTENT, ADS hoặc DESIGN"
-                    )
-                )
-
-    for field, value in update_data.items():
-        setattr(task, field, value)
-
-    db.commit()
-    db.refresh(task)
-
-    return task
+@router.put(
+    "/tasks/{task_id}",
+    response_model=CampaignTaskResponse
+)
+def update_task(
+    task_id: int,
+    task: CampaignTaskUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return update_campaign_task(
+        db,
+        current_user,
+        task_id,
+        task.title,
+        task.description,
+        task.due_date,
+        task.status,
+        task.priority,
+        task.assignee_id
+    )
 
 
 @router.delete(
-    "/campaign-tasks/{task_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Xóa đầu việc",
-    description=(
-        "Xóa một đầu việc chiến dịch. "
-        "Chỉ OWNER của chiến dịch mới có quyền xóa."
-    ),
-    response_description="Không có nội dung trả về khi xóa thành công."
+    "/tasks/{task_id}"
 )
-def delete_campaign_task(
+def delete_task(
     task_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    task = db.query(CampaignTask).filter(
-        CampaignTask.id == task_id
-    ).first()
-
-    if task is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Không tìm thấy công việc"
-        )
-
-    campaign = db.query(Campaign).filter(
-        Campaign.id == task.campaign_id
-    ).first()
-
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Không tìm thấy chiến dịch"
-        )
-
-    member = db.query(CampaignMember).filter(
-        CampaignMember.campaign_id == task.campaign_id,
-        CampaignMember.user_id == current_user.id
-    ).first()
-
-    is_owner = campaign.owner_id == current_user.id
-    is_assignee = task.assignee_id == current_user.id
-
-    if not is_owner:
-        if member is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bạn không thuộc chiến dịch này"
-            )
-
-        if is_assignee:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Assignee không có quyền xóa công việc"
-            )
-
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Chỉ chủ chiến dịch mới có quyền xóa công việc"
-        )
-
-    db.delete(task)
-    db.commit()
-
-    return None
+    return delete_campaign_task(
+        db,
+        current_user,
+        task_id
+    )

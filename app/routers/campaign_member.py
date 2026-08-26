@@ -1,18 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-
+from app.dependencies.auth import get_current_user
 from app.models.users import User
-from app.models.campaigns import Campaign, CampaignMember
-
 from app.schemas.campaign_member import (
     CampaignMemberCreate,
     CampaignMemberResponse
 )
-
-from app.dependencies.auth import get_current_user
+from app.services.campaign_member import (
+    add_campaign_member,
+    delete_campaign_member,
+    get_campaign_members
+)
 
 
 router = APIRouter(
@@ -23,186 +23,51 @@ router = APIRouter(
 
 @router.post(
     "/{campaign_id}/members",
-    response_model=CampaignMemberResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Thêm thành viên vào chiến dịch",
-    description=(
-        "Thêm một người dùng vào chiến dịch. "
-        "Chỉ OWNER mới có quyền thêm thành viên. "
-        "Position hợp lệ gồm CONTENT, ADS và DESIGN."
-    ),
-    response_description="Thông tin thành viên vừa được thêm."
+    response_model=CampaignMemberResponse
 )
 def add_member(
     campaign_id: int,
     member: CampaignMemberCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id
-    ).first()
-
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Không tìm thấy chiến dịch"
-        )
-
-    if campaign.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Chỉ OWNER mới được thêm thành viên"
-        )
-
-    user = db.query(User).filter(
-        User.id == member.user_id
-    ).first()
-
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Không tìm thấy người dùng"
-        )
-
-    existing_member = db.query(CampaignMember).filter(
-        CampaignMember.campaign_id == campaign_id,
-        CampaignMember.user_id == member.user_id
-    ).first()
-
-    if existing_member:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Người dùng đã là thành viên của chiến dịch"
-        )
-
-    if member.position not in [
-        "CONTENT",
-        "ADS",
-        "DESIGN"
-    ]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Position phải là CONTENT, ADS hoặc DESIGN"
-        )
-
-    new_member = CampaignMember(
-        campaign_id=campaign_id,
-        user_id=member.user_id,
-        role="MEMBER",
-        position=member.position
+    return add_campaign_member(
+        db,
+        current_user,
+        campaign_id,
+        member.user_id,
+        member.position
     )
-
-    db.add(new_member)
-    db.commit()
-    db.refresh(new_member)
-
-    return new_member
 
 
 @router.delete(
-    "/{campaign_id}/members/{user_id}",
-    status_code=status.HTTP_200_OK,
-    summary="Xóa thành viên khỏi chiến dịch",
-    description=(
-        "Xóa một thành viên khỏi chiến dịch. "
-        "Chỉ OWNER mới có quyền thực hiện. "
-        "Không cho phép xóa OWNER cuối cùng."
-    ),
-    response_description="Thông báo xóa thành viên thành công."
+    "/{campaign_id}/members/{user_id}"
 )
 def delete_member(
     campaign_id: int,
     user_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id
-    ).first()
-
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Không tìm thấy chiến dịch"
-        )
-
-    if campaign.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Chỉ OWNER mới được xóa thành viên"
-        )
-
-    member = db.query(CampaignMember).filter(
-        CampaignMember.campaign_id == campaign_id,
-        CampaignMember.user_id == user_id
-    ).first()
-
-    if member is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Người dùng không phải thành viên của chiến dịch"
-        )
-
-    if member.role == "OWNER":
-        owner_count = db.query(CampaignMember).filter(
-            CampaignMember.campaign_id == campaign_id,
-            CampaignMember.role == "OWNER"
-        ).count()
-
-        if owner_count == 1:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Không thể xóa OWNER cuối cùng"
-            )
-
-    db.delete(member)
-    db.commit()
-
-    return {
-        "message": "Xóa thành viên thành công"
-    }
+    return delete_campaign_member(
+        db,
+        current_user,
+        campaign_id,
+        user_id
+    )
 
 
 @router.get(
     "/{campaign_id}/members",
-    response_model=list[CampaignMemberResponse],
-    status_code=status.HTTP_200_OK,
-    summary="Lấy danh sách thành viên",
-    description=(
-        "Lấy danh sách tất cả thành viên của chiến dịch. "
-        "OWNER và thành viên thuộc chiến dịch mới có quyền xem."
-    ),
-    response_description="Danh sách thành viên của chiến dịch."
+    response_model=list[CampaignMemberResponse]
 )
 def get_members(
     campaign_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id
-    ).first()
-
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Không tìm thấy chiến dịch"
-        )
-
-    member = db.query(CampaignMember).filter(
-        CampaignMember.campaign_id == campaign_id,
-        CampaignMember.user_id == current_user.id
-    ).first()
-
-    if campaign.owner_id != current_user.id and member is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn không phải thành viên của chiến dịch"
-        )
-
-    members = db.query(CampaignMember).filter(
-        CampaignMember.campaign_id == campaign_id
-    ).all()
-
-    return members
+    return get_campaign_members(
+        db,
+        current_user,
+        campaign_id
+    )
