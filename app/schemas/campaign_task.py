@@ -6,7 +6,7 @@ class CampaignTaskBase(BaseModel):
     title: str
     description: str
     status: str
-    pririty: str
+    priority: str
     due_date: datetime
 
 
