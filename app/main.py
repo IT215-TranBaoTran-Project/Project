@@ -4,7 +4,8 @@ from fastapi.responses import JSONResponse
 from app.db.database import Base,engine
 
 from app.models.users import User
-from app.models.campaigns import Campaign,CampaignMember,CampaignTask
+from app.models.campaigns import Campaign, CampaignMember
+from app.models.campaign_tasks import CampaignTask
 
 from app.routers import users
 from app.routers import campaign

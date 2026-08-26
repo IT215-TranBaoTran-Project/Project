@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -14,6 +14,7 @@ from app.services.campaign import (
     get_campaigns,
     get_campaign_by_id,
     update_campaign,
+    patch_campaign,
     delete_campaign
 )
 
@@ -26,7 +27,13 @@ router = APIRouter(
 
 @router.post(
     "",
-    response_model=CampaignResponse
+    response_model=CampaignResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Tạo chiến dịch",
+    description=(
+        "Tạo một chiến dịch mới. Người dùng đăng nhập sẽ trở thành "
+        "OWNER của chiến dịch và được thêm tự động vào danh sách thành viên."
+    )
 )
 def create_campaign_endpoint(
     campaign: CampaignCreate,
@@ -43,7 +50,9 @@ def create_campaign_endpoint(
 
 @router.get(
     "",
-    response_model=list[CampaignResponse]
+    response_model=list[CampaignResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Lấy danh sách chiến dịch"
 )
 def get_campaigns_endpoint(
     search: str | None = None,
@@ -59,7 +68,9 @@ def get_campaigns_endpoint(
 
 @router.get(
     "/{campaign_id}",
-    response_model=CampaignResponse
+    response_model=CampaignResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Lấy thông tin chiến dịch"
 )
 def get_campaign_by_id_endpoint(
     campaign_id: int,
@@ -75,7 +86,9 @@ def get_campaign_by_id_endpoint(
 
 @router.put(
     "/{campaign_id}",
-    response_model=CampaignResponse
+    response_model=CampaignResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Cập nhật chiến dịch"
 )
 def update_campaign_endpoint(
     campaign_id: int,
@@ -92,8 +105,31 @@ def update_campaign_endpoint(
     )
 
 
+@router.patch(
+    "/{campaign_id}",
+    response_model=CampaignResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Cập nhật một phần chiến dịch"
+)
+def patch_campaign_endpoint(
+    campaign_id: int,
+    campaign: CampaignUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return patch_campaign(
+        db,
+        current_user,
+        campaign_id,
+        campaign.name,
+        campaign.description
+    )
+
+
 @router.delete(
-    "/{campaign_id}"
+    "/{campaign_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Xóa chiến dịch"
 )
 def delete_campaign_endpoint(
     campaign_id: int,

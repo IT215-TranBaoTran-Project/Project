@@ -41,6 +41,7 @@ def create_campaign(
     )
 
     db.add(owner)
+
     db.commit()
     db.refresh(campaign)
 
@@ -155,6 +156,55 @@ def update_campaign(
 
     campaign.name = name.strip()
     campaign.description = description
+
+    db.commit()
+    db.refresh(campaign)
+
+    return campaign
+
+
+def patch_campaign(
+    db: Session,
+    current_user: User,
+    campaign_id: int,
+    name: str | None,
+    description: str | None
+):
+    campaign = (
+        db.query(Campaign)
+        .filter(Campaign.id == campaign_id)
+        .first()
+    )
+
+    if campaign is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Không tìm thấy chiến dịch"
+        )
+
+    if campaign.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Chỉ OWNER mới được sửa chiến dịch"
+        )
+
+    if name is not None:
+        if not name.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Tên chiến dịch không được để trống"
+            )
+
+        if len(name.strip()) > 255:
+            raise HTTPException(
+                status_code=400,
+                detail="Tên chiến dịch không được vượt quá 255 ký tự"
+            )
+
+        campaign.name = name.strip()
+
+    if description is not None:
+        campaign.description = description
 
     db.commit()
     db.refresh(campaign)

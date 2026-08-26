@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -23,7 +23,9 @@ router = APIRouter(
 
 @router.post(
     "/{campaign_id}/members",
-    response_model=CampaignMemberResponse
+    response_model=CampaignMemberResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Thêm thành viên vào chiến dịch"
 )
 def add_member(
     campaign_id: int,
